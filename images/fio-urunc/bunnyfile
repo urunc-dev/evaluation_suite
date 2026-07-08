@@ -1,0 +1,18 @@
+#syntax=harbor.nbfc.io/nubificus/bunny:latest
+version: v0.1
+
+platforms:
+  framework: linux
+  monitor: qemu
+  architecture: x86
+
+rootfs:
+  from: jimjuniorb/fio:0.1
+  type: raw
+
+kernel:
+  from: local
+  path: bzImage
+
+
+entrypoint: ["/usr/bin/fio"]

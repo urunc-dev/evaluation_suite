@@ -1,0 +1,20 @@
+#syntax=harbor.nbfc.io/nubificus/bunny:latest
+version: v0.1
+
+platforms:
+  framework: linux
+  monitor: qemu
+  architecture: x86
+
+rootfs:
+  from: nginx:alpine
+  type: raw
+  include:
+  - ./bin/minimal:/minimal
+
+kernel:
+  from: harbor.nbfc.io/nubificus/urunc/linux-kernel-qemu:v6.14
+  path: /kernel
+
+
+cmd: ["/minimal"]

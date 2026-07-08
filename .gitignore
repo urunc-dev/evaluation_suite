@@ -1,0 +1,23 @@
+# go buildd
+build/
+
+# experiment results
+results/
+
+# C builds
+**/bin
+
+harness
+
+.venv
+
+# linux image
+
+images/fio-urunc/bzImage
+
+
+# python cache
+__pycache__/
+.ipynb_checkpoints/
+
+notebooks/run.json

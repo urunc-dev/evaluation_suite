@@ -1,0 +1,37 @@
+
+runtimes:
+  - name: runc
+    handler: io.containerd.runc.v2
+
+  - name: kata
+    handler: io.containerd.kata.v2
+
+  - name: runsc
+    handler: io.containerd.runsc.v1
+
+  - name: urunc
+    handler: io.containerd.urunc.v2
+
+
+experiments:
+
+  lifecycle:
+    workloads:
+      default:
+        image: docker.io/library/nginx:alpine
+
+      other:
+      - image: docker.io/library/minimalc:test
+        runtime: urunc
+
+  storage:
+    workloads:
+      default:
+        image: docker.io/jimjuniorb/fio:0.1
+        snapshotter: overlayfs
+      other:
+
+      - image: docker.io/jimjuniorb/fio-urunc:0.4
+        runtime: urunc
+        snapshotter: devmapper
+

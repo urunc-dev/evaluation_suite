@@ -1,0 +1,23 @@
+#syntax=harbor.nbfc.io/nubificus/bunny:latest
+version: v0.1
+
+platforms:
+  framework: linux
+  monitor: qemu
+  architecture: x86
+
+rootfs:
+  from: nginx:alpine
+  type: raw
+  include:
+  - from: harbor.nbfc.io/nubificus/urunit:latest
+    source: /urunit
+    destination: /urunit
+  - ./run-nginx.sh:/run-nginx.sh
+
+kernel:
+  from: harbor.nbfc.io/nubificus/urunc/linux-kernel-qemu:v6.14
+  path: /kernel
+
+
+cmd: ["/run-nginx.sh"]
