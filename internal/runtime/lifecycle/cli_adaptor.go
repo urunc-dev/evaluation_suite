@@ -25,7 +25,7 @@ func (a *Adapter) CLIPrepare(tc harnessruntime.TrialContext) (harnessruntime.Sta
 	log.Printf("Running skopeo command: %s\n", cmdskopeo.String())
 
 	if err := cmdskopeo.Run(); err != nil {
-		log.Fatalf("failed to save image %q to tarball: %v", imageName, err)
+		return harnessruntime.StageResult{}, fmt.Errorf("save image %q to tarball: %w", imageName, err)
 	}
 
 	cmdumoci := exec.Command("umoci", "unpack",
@@ -38,7 +38,7 @@ func (a *Adapter) CLIPrepare(tc harnessruntime.TrialContext) (harnessruntime.Sta
 	log.Printf("Running umoci command: %s\n", cmdumoci.String())
 
 	if err := cmdumoci.Run(); err != nil {
-		log.Fatalf("failed to unpack image %q to bundle: %v", imageName, err)
+		return harnessruntime.StageResult{}, fmt.Errorf("unpack image %q to bundle: %w", imageName, err)
 	}
 
 	finishedAt := time.Now()
@@ -72,7 +72,7 @@ func (a *Adapter) CLICreateTask(tc harnessruntime.TrialContext) (harnessruntime.
 	// BUNDLE PATH: pwd + <trial_id>-bundle
 	dir, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("failed to get current working directory: %v", err)
+		return harnessruntime.StageResult{}, fmt.Errorf("get current working directory: %w", err)
 	}
 	bundlePath := fmt.Sprintf("%s/%s-bundle", dir, tc.Trial.ID)
 
@@ -86,7 +86,7 @@ func (a *Adapter) CLICreateTask(tc harnessruntime.TrialContext) (harnessruntime.
 	log.Printf("Running runsc command: %s\n", cmdrunsc.String())
 
 	if err := cmdrunsc.Run(); err != nil {
-		log.Fatalf("failed to create task %q: %v", tc.Trial.ID, err)
+		return harnessruntime.StageResult{}, fmt.Errorf("create task %q: %w", tc.Trial.ID, err)
 	}
 
 	finishedAt := time.Now()
@@ -123,7 +123,7 @@ func (a *Adapter) CLIStartTask(tc harnessruntime.TrialContext) (harnessruntime.S
 	cmdrunsc.Stderr = os.Stderr
 
 	if err := cmdrunsc.Run(); err != nil {
-		log.Fatalf("failed to start task %q: %v", tc.Trial.ID, err)
+		return harnessruntime.StageResult{}, fmt.Errorf("start task %q: %w", tc.Trial.ID, err)
 	}
 
 	finishedAt := time.Now()
@@ -197,7 +197,7 @@ func (a *Adapter) CLIDeleteTask(tc harnessruntime.TrialContext) (harnessruntime.
 	cmdrunsc.Stderr = os.Stderr
 
 	if err := cmdrunsc.Run(); err != nil {
-		log.Fatalf("failed to stop task %q: %v", tc.Trial.ID, err)
+		return harnessruntime.StageResult{}, fmt.Errorf("delete task %q: %w", tc.Trial.ID, err)
 	}
 
 	finishedAt := time.Now()
@@ -230,7 +230,7 @@ func (a *Adapter) CLICleanupTask(tc harnessruntime.TrialContext) (harnessruntime
 
 	bundleDir := fmt.Sprintf("%s-bundle", tc.Trial.ID)
 	if err := os.RemoveAll(bundleDir); err != nil {
-		log.Fatalf("failed to remove bundle directory %q: %v", bundleDir, err)
+		return harnessruntime.StageResult{}, fmt.Errorf("remove bundle directory %q: %w", bundleDir, err)
 	}
 
 	if err := os.RemoveAll(tc.Trial.ID); err != nil {
