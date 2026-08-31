@@ -50,7 +50,12 @@ func (a *Adapter) CLIStartTask(tc harnessruntime.TrialContext) (harnessruntime.S
 	log.Printf("Running nerdctl command: %s\n", cmdNerdctl.String())
 
 	if err := cmdNerdctl.Run(); err != nil {
-		log.Fatalf("failed to start task with nerdctl: %v", err)
+		return harnessruntime.StageResult{}, fmt.Errorf(
+			"start task with nerdctl: %w\nstdout: %s\nstderr: %s",
+			err,
+			stdout.String(),
+			stderr.String(),
+		)
 	}
 
 	finishedAt := time.Now()
