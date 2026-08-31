@@ -105,7 +105,7 @@ func (a *Adapter) Prepare(ctx context.Context, tc harnessruntime.TrialContext) (
 	// image
 	image, err := getOrPullImage(*a.ContainerdNamespace, a.ContainerdClient, tc.Trial.Image, tc.Trial.Snapshotter)
 	if err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("get or pull image %q: %w", tc.Trial.Image, err)
 	}
 	// create container metadata
 	container, err := a.ContainerdClient.NewContainer(
@@ -120,7 +120,7 @@ func (a *Adapter) Prepare(ctx context.Context, tc harnessruntime.TrialContext) (
 		),
 	)
 	if err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("create container %q: %w", tc.Trial.ID, err)
 	}
 
 	a.Container = container
@@ -165,13 +165,13 @@ func (a *Adapter) CreateTask(ctx context.Context, tc harnessruntime.TrialContext
 		cio.WithStreams(nil, &a.StdoutBuffer, &a.StderrBuffer),
 	))
 	if err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("create task %q: %w", tc.Trial.ID, err)
 	}
 	a.Task = task
 
 	exitCh, err := task.Wait(*a.ContainerdNamespace)
 	if err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("wait on task %q: %w", tc.Trial.ID, err)
 	}
 
 	a.TaskExitCh = exitCh
@@ -213,7 +213,7 @@ func (a *Adapter) StartTask(ctx context.Context, tc harnessruntime.TrialContext)
 	startedAt := time.Now()
 
 	if err := a.Task.Start(*a.ContainerdNamespace); err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("start task %q: %w", tc.Trial.ID, err)
 	}
 
 	finishedAt := time.Now()
@@ -227,7 +227,7 @@ func (a *Adapter) StartTask(ctx context.Context, tc harnessruntime.TrialContext)
 	case status := <-a.TaskExitCh:
 		exitCodee, _, err := status.Result()
 		if err != nil {
-			log.Fatal(err)
+			return harnessruntime.StageResult{}, fmt.Errorf("read task exit status: %w", err)
 		}
 
 		exitCode = exitCodee
@@ -286,7 +286,7 @@ func (a *Adapter) DeleteTask(ctx context.Context, tc harnessruntime.TrialContext
 	startedAt := time.Now()
 
 	if _, err := a.Task.Delete(*a.ContainerdNamespace); err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("delete task %q: %w", tc.Trial.ID, err)
 	}
 
 	finishedAt := time.Now()
