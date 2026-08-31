@@ -47,7 +47,7 @@ func (a *Adapter) Prepare(ctx context.Context, tc harnessruntime.TrialContext) (
 	// image
 	image, err := a.ContainerdClient.GetImage(*a.ContainerdNamespace, tc.Trial.Image)
 	if err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("get image %q: %w", tc.Trial.Image, err)
 	}
 	// create container metadata
 	container, err := a.ContainerdClient.NewContainer(
@@ -61,7 +61,7 @@ func (a *Adapter) Prepare(ctx context.Context, tc harnessruntime.TrialContext) (
 		),
 	)
 	if err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("create container %q: %w", tc.Trial.ID, err)
 	}
 
 	a.Container = container
@@ -106,13 +106,13 @@ func (a *Adapter) CreateTask(ctx context.Context, tc harnessruntime.TrialContext
 
 	task, err := a.Container.NewTask(*a.ContainerdNamespace, cio.NullIO)
 	if err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("create task %q: %w", tc.Trial.ID, err)
 	}
 	a.Task = task
 
 	exitCh, err := task.Wait(*a.ContainerdNamespace)
 	if err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("wait on task %q: %w", tc.Trial.ID, err)
 	}
 
 	a.TaskExitCh = exitCh
@@ -121,7 +121,7 @@ func (a *Adapter) CreateTask(ctx context.Context, tc harnessruntime.TrialContext
 		select {
 		case err := <-errCh:
 			if err != nil {
-				log.Fatal(err)
+				return harnessruntime.StageResult{}, fmt.Errorf("containerd event subscription: %w", err)
 			}
 
 		case envelope := <-eventCh:
@@ -135,7 +135,7 @@ func (a *Adapter) CreateTask(ctx context.Context, tc harnessruntime.TrialContext
 
 			event, err := typeurl.UnmarshalAny(envelope.Event)
 			if err != nil {
-				log.Fatal(err)
+				return harnessruntime.StageResult{}, fmt.Errorf("unmarshal task create event: %w", err)
 			}
 
 			taskCreate, ok := event.(*apievents.TaskCreate)
@@ -173,7 +173,7 @@ func (a *Adapter) CreateTask(ctx context.Context, tc harnessruntime.TrialContext
 			}, nil
 
 		case <-time.After(60 * time.Second):
-			log.Fatal("timed out waiting for /tasks/create event")
+			return harnessruntime.StageResult{}, fmt.Errorf("timed out waiting for /tasks/create event for trial %q", tc.Trial.ID)
 		}
 	}
 
@@ -203,14 +203,14 @@ func (a *Adapter) StartTask(ctx context.Context, tc harnessruntime.TrialContext)
 	startedAt := time.Now()
 
 	if err := a.Task.Start(*a.ContainerdNamespace); err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("start task %q: %w", tc.Trial.ID, err)
 	}
 
 	for {
 		select {
 		case err := <-errCh:
 			if err != nil {
-				log.Fatal(err)
+				return harnessruntime.StageResult{}, fmt.Errorf("containerd event subscription: %w", err)
 			}
 
 		case envelope := <-eventCh:
@@ -224,7 +224,7 @@ func (a *Adapter) StartTask(ctx context.Context, tc harnessruntime.TrialContext)
 
 			event, err := typeurl.UnmarshalAny(envelope.Event)
 			if err != nil {
-				log.Fatal(err)
+				return harnessruntime.StageResult{}, fmt.Errorf("unmarshal task event: %w", err)
 			}
 
 			if taskName == "/tasks/start" {
@@ -273,7 +273,7 @@ func (a *Adapter) StartTask(ctx context.Context, tc harnessruntime.TrialContext)
 			}, nil
 
 		case <-time.After(60 * time.Second):
-			log.Fatal("timed out waiting for task start event")
+			return harnessruntime.StageResult{}, fmt.Errorf("timed out waiting for task start event for trial %q", tc.Trial.ID)
 		}
 	}
 
@@ -296,10 +296,7 @@ func (a *Adapter) Stop(
 
 	status, err := a.Task.Status(*a.ContainerdNamespace)
 	if err != nil {
-		log.Fatalf(
-			"get task status: %v",
-			err,
-		)
+		return harnessruntime.StageResult{}, fmt.Errorf("get task status: %w", err)
 	}
 
 	if status.Status != containerd.Stopped {
@@ -307,27 +304,19 @@ func (a *Adapter) Stop(
 			*a.ContainerdNamespace,
 			syscall.SIGKILL,
 		); err != nil {
-			log.Fatalf(
-				"kill task: %v",
-				err,
-			)
+			return harnessruntime.StageResult{}, fmt.Errorf("kill task: %w", err)
 		}
 	}
 
 	if a.TaskExitCh == nil {
-		log.Fatalf(
-			"task exit waiter was not initialized",
-		)
+		return harnessruntime.StageResult{}, fmt.Errorf("task exit waiter was not initialized for trial %q", tc.Trial.ID)
 	}
 
 	select {
 	case exitStatus := <-a.TaskExitCh:
 		exitCode, exitTime, err := exitStatus.Result()
 		if err != nil {
-			log.Fatalf(
-				"read task exit status: %v",
-				err,
-			)
+			return harnessruntime.StageResult{}, fmt.Errorf("read task exit status: %w", err)
 		}
 
 		finishedAt := time.Now()
@@ -352,13 +341,8 @@ func (a *Adapter) Stop(
 		return harnessruntime.StageResult{}, ctx.Err()
 
 	case <-time.After(60 * time.Second):
-		log.Fatalf(
-			"timed out waiting for task %q to stop",
-			tc.Trial.ID,
-		)
+		return harnessruntime.StageResult{}, fmt.Errorf("timed out waiting for task %q to stop", tc.Trial.ID)
 	}
-
-	return harnessruntime.StageResult{}, nil
 }
 
 func (a *Adapter) DeleteTask(ctx context.Context, tc harnessruntime.TrialContext) (harnessruntime.StageResult, error) {
@@ -372,14 +356,14 @@ func (a *Adapter) DeleteTask(ctx context.Context, tc harnessruntime.TrialContext
 	startedAt := time.Now()
 
 	if _, err := a.Task.Delete(*a.ContainerdNamespace); err != nil {
-		log.Fatal(err)
+		return harnessruntime.StageResult{}, fmt.Errorf("delete task %q: %w", tc.Trial.ID, err)
 	}
 
 	for {
 		select {
 		case err := <-errCh:
 			if err != nil {
-				log.Fatal(err)
+				return harnessruntime.StageResult{}, fmt.Errorf("containerd event subscription: %w", err)
 			}
 
 		case envelope := <-eventsCh:
@@ -393,7 +377,7 @@ func (a *Adapter) DeleteTask(ctx context.Context, tc harnessruntime.TrialContext
 
 			event, err := typeurl.UnmarshalAny(envelope.Event)
 			if err != nil {
-				log.Fatal(err)
+				return harnessruntime.StageResult{}, fmt.Errorf("unmarshal task delete event: %w", err)
 			}
 
 			taskDelete, ok := event.(*apievents.TaskDelete)
@@ -431,7 +415,7 @@ func (a *Adapter) DeleteTask(ctx context.Context, tc harnessruntime.TrialContext
 			}, nil
 
 		case <-time.After(60 * time.Second):
-			log.Fatal("timed out waiting for task delete event")
+			return harnessruntime.StageResult{}, fmt.Errorf("timed out waiting for task delete event for trial %q", tc.Trial.ID)
 		}
 	}
 }
