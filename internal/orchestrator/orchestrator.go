@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/urunc-dev/evaluation_suite/internal/plan"
@@ -147,6 +148,13 @@ func (o *Orchestrator) runTrial(
 	}
 
 	for i := 0; i < repetitions; i++ {
+		// prepared tracks whether the Prepare stage has succeeded, i.e.
+		// whether the adapter may own real resources (containers, tasks,
+		// netns, etc.) that Cleanup needs to tear down. cleanedUp tracks
+		// whether Cleanup has already run (as the last regular stage) so we
+		// don't invoke it a second time on the happy path.
+		prepared := false
+		cleanedUp := false
 
 		for _, stage := range stages {
 			// if the stage's experiment does not match the trial's experiment, skip it
@@ -154,12 +162,38 @@ func (o *Orchestrator) runTrial(
 				continue
 			}
 			stageResult, err := stage.fn(ctx, runtimeTC)
+			result.RuntimeStages = append(result.RuntimeStages, stageResult)
+
+			if stage.name == harnessruntime.StageCleanup {
+				cleanedUp = err == nil
+			}
+
 			if err != nil {
-				result.RuntimeStages = append(result.RuntimeStages, stageResult)
+				// A later stage failed after resources were created in
+				// Prepare. Run cleanup on a best-effort basis so a failed
+				// trial doesn't leak containers/VMs/netns on the host. A
+				// cleanup failure here is logged, not fatal: it must not
+				// mask the original stage error being returned below.
+				if prepared && !cleanedUp && stage.name != harnessruntime.StageCleanup {
+					for _, adapter := range adapters {
+						if adapter.ExperimentName() != stage.experiment {
+							continue
+						}
+						if _, cleanupErr := adapter.Cleanup(ctx, runtimeTC); cleanupErr != nil {
+							log.Printf(
+								"trial %s: cleanup after %s stage failure also failed: %v",
+								trial.ID, stage.name, cleanupErr,
+							)
+						}
+						break
+					}
+				}
 				return failTrial(result, stage.name, err)
 			}
 
-			result.RuntimeStages = append(result.RuntimeStages, stageResult)
+			if stage.name == harnessruntime.StagePrepare {
+				prepared = true
+			}
 		}
 	}
 
