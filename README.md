@@ -150,8 +150,8 @@ experiments:
           snapshotter: devmapper
 ```
 
-The available experiment adapters are `lifecycle`, `storage`, and
-`http-readiness`.
+The available experiment adapters are `lifecycle`, `storage`,
+`http-readiness`, `memory`, `cpu`, and `network`.
 
 For HTTP readiness, specify the nginx image and an available host port. The
 adapter pulls and creates the container before measurement, then starts a GET
