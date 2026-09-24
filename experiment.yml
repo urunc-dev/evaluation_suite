@@ -42,15 +42,15 @@ experiments:
   storage:
     workloads:
       default:
-        image: docker.io/jimjuniorb/fio:0.1
+        image: docker.io/xridge/fio:latest
         snapshotter: overlayfs
       other:
 
-      - image: docker.io/jimjuniorb/fio-urunc:0.5
+      - image: docker.io/jimjuniorb/fio-urunc:0.8
         runtime: urunc
         snapshotter: devmapper
 
-      - image: docker.io/jimjuniorb/fio-urunc:0.5
+      - image: docker.io/jimjuniorb/fio-urunc:0.8
         runtime: urunc
         snapshotter: overlayfs
 
