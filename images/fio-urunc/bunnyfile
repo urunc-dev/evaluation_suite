@@ -7,12 +7,16 @@ platforms:
   architecture: x86
 
 rootfs:
-  from: jimjuniorb/fio:0.1
+  from: xridge/fio:latest
   type: raw
+  include:
+    - from: harbor.nbfc.io/nubificus/urunit:latest
+      source: /urunit
+      destination: /urunit
 
 kernel:
   from: local
   path: bzImage
 
 
-entrypoint: ["/usr/bin/fio"]
+entrypoint: ["/urunit", "/usr/bin/fio"]
